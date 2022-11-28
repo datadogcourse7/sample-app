@@ -1,0 +1,73 @@
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: frontend-app
+  labels:
+    tags.datadoghq.com/env: "dev"
+    tags.datadoghq.com/service: "frontend-app"
+    tags.datadoghq.com/version: "v1.2"
+
+spec:
+  selector:
+    matchLabels:
+      app: frontend-app
+  replicas: 1 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: frontend-app
+        tags.datadoghq.com/env: "dev"
+        tags.datadoghq.com/service: "frontend-app"
+        tags.datadoghq.com/version: "v1.2"
+
+    spec:
+      volumes:
+        - hostPath:
+            path: /var/run/datadog/
+          name: apmsocketpath
+            
+      containers:
+      - name: frontend-app
+        image: datadogcourse7/frontend-app:v1.2
+        imagePullPolicy: Always
+        volumeMounts:
+          - name: apmsocketpath
+            mountPath: /var/run/datadog        
+        ports:
+        - containerPort: 5000
+        env:
+          - name: DD_AGENT_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP          
+
+          - name: DD_ENV
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['tags.datadoghq.com/env']
+          - name: DD_SERVICE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['tags.datadoghq.com/service']
+          - name: DD_VERSION
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['tags.datadoghq.com/version']
+          - name: DD_LOGS_INJECTION
+            value: "true"                
+          - name: DD_PROFILING_ENABLED
+            value: "true"
+          - name: DD_TRACE_ENABLED
+            value: "true"
+            
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-app
+spec:
+  selector:
+    app: frontend-app
+  ports:
+    - port: 5000
