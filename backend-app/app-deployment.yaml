@@ -1,0 +1,93 @@
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: backend-app
+  annotations:
+    ad.datadoghq.com/addcar.logs: '[{"source":"python","service":"backend-app"}]'
+  labels:
+    tags.datadoghq.com/env: "dev"
+    tags.datadoghq.com/service: "backend-app"
+    tags.datadoghq.com/version: "v1.1"
+    tags.datadoghq.com/addtionaltag: "impapp"
+
+spec:
+  selector:
+    matchLabels:
+      app: backend-app
+  replicas: 1 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: backend-app
+        tags.datadoghq.com/env: "dev"
+        tags.datadoghq.com/service: "backend-app"
+        tags.datadoghq.com/version: "v1.1"
+        tags.datadoghq.com/addtionaltag: "impapp"
+
+    spec:
+      volumes:
+        - hostPath:
+            path: /var/run/datadog/
+          name: apmsocketpath
+        - hostPath:
+            path: /etc/passwd
+          name: passwd
+
+
+      containers:
+      - name: backend-app
+        image: datadogcourse7/backend-app:v1.1
+        volumeMounts:
+          - name: apmsocketpath
+            mountPath: /var/run/datadog        
+
+          - name: passwd
+            mountPath: /etc/passwd
+            readOnly: true
+
+        ports:
+        - containerPort: 8000
+        env:
+          - name: DD_AGENT_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP          
+
+          - name: DD_ENV
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['tags.datadoghq.com/env']
+          - name: DD_SERVICE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['tags.datadoghq.com/service']
+          - name: DD_VERSION
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.labels['tags.datadoghq.com/version']
+          - name: DD_LOGS_INJECTION
+            value: "true"                
+          - name: DD_TAGS
+            value: "env:backend-app role:development name:ravi"
+
+          - name: DD_PROCESS_AGENT_ENABLED
+            value: "true"
+          - name: DD_PROFILING_ENABLED 
+            value: "true"
+          - name: DD_TRACE_ENABLED
+            value: "true"
+          - name: DD_DOGSTATSD_NON_LOCAL_TRAFFIC
+            value: "true"
+          - name: DD_RUNTIME_METRICS_ENABLED
+            value: "true"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-app
+spec:
+  selector:
+    app: backend-app
+  ports:
+    - port: 8000
